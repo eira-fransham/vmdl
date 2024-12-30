@@ -41,6 +41,12 @@ impl Display for BoneId {
     }
 }
 
+impl PartialEq<u8> for BoneId {
+    fn eq(&self, other: &u8) -> bool {
+        self.0 == *other
+    }
+}
+
 #[derive(Debug, Clone, Copy, Zeroable, Pod)]
 #[repr(C)]
 pub struct BoneHeader {

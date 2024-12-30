@@ -155,10 +155,22 @@ bitflags! {
     }
 }
 
-#[derive(Zeroable, Pod, Copy, Clone, Debug)]
-#[repr(C)]
-struct AnimationValuePointer([u16; 3]);
-impl ReadableRelative for AnimationValuePointer {}
+#[derive(Debug, Copy, Clone)]
+struct AnimationValuePointers<'a> {
+    offsets: [u16; 3],
+    data: &'a [u8],
+}
+
+impl<'a> ReadRelative<'a> for AnimationValuePointers<'a> {
+    type Header = [u16; 3];
+
+    fn read(data: &'a [u8], header: Self::Header) -> Result<Self, ModelError> {
+        Ok(AnimationValuePointers {
+            offsets: header,
+            data,
+        })
+    }
+}
 
 #[derive(Zeroable, Pod, Copy, Clone, Debug, Default)]
 #[repr(C)]
@@ -172,17 +184,16 @@ static_assertions::const_assert_eq!(size_of::<ValueHeader>(), size_of::<i16>());
 impl ReadableRelative for ValueHeader {}
 
 fn read_animation_values(
-    data: &[u8], // data starting at the AnimationValuePointer
     frame: usize,
-    base_pointers: AnimationValuePointer,
+    animation_value_pointers: AnimationValuePointers,
 ) -> Result<[f32; 3], ModelError> {
-    let [x, y, z] = base_pointers
-        .0
-        .map::<_, Result<_, ModelError>>(|base_pointer| {
-            if base_pointer == 0 {
+    let [x, y, z] = animation_value_pointers
+        .offsets
+        .map::<_, Result<_, ModelError>>(|offset| {
+            if offset == 0 {
                 Ok(0)
             } else {
-                let values: FrameValues = read_single(data, base_pointer)?;
+                let values: FrameValues = read_single(animation_value_pointers.data, offset)?;
                 Ok(values.get(frame as u8)?)
             }
         });
@@ -291,7 +302,9 @@ impl RotationData {
         match self {
             RotationData::Quaternion48(_) => size_of::<Quaternion48>(),
             RotationData::Quaternion64(_) => size_of::<Quaternion64>(),
-            RotationData::Animated(_) => size_of::<AnimationValuePointer>(),
+            RotationData::Animated(_) => {
+                size_of::<<AnimationValuePointers<'_> as ReadRelative>::Header>()
+            }
             RotationData::None => 0,
         }
     }
@@ -332,7 +345,10 @@ impl PositionData {
     pub fn position(&self, frame: usize) -> Vector {
         match self {
             PositionData::Vector48(vector) => Vector::from(*vector),
-            PositionData::PositionValues(values) => values.get(frame).copied().unwrap_or_default(),
+            PositionData::PositionValues(values) => values
+                .get(frame)
+                .copied()
+                .unwrap_or_else(|| values.last().copied().unwrap_or_default()),
             PositionData::None => Vector::default(),
         }
     }
@@ -364,12 +380,13 @@ impl Animation {
         self.rotation_data.rotation(frame)
     }
 
-    pub fn position(&self, frame: usize) -> Vector {
+    pub fn translation(&self, frame: usize) -> Vector {
         self.position_data.position(frame)
     }
 
     pub fn transform(&self, frame: usize) -> Matrix4<f32> {
-        Matrix4::from_translation(self.position(frame).into()) * Matrix4::from(self.rotation(frame))
+        Matrix4::from(self.rotation(frame))
+            * Matrix4::from_translation(self.translation(frame).into())
     }
 
     pub(crate) fn apply_bone_data(&mut self, bone: &Bone) {
@@ -399,10 +416,9 @@ fn read_animation(
     } else if header.flags.contains(AnimationFlags::STUDIO_ANIM_RAWROT2) {
         RotationData::from(read_single::<Quaternion64, _>(data, offset)?)
     } else if header.flags.contains(AnimationFlags::STUDIO_ANIM_ANIMROT) {
-        let pointers: AnimationValuePointer = read_single(data, offset)?;
-        let value_data = &data[offset..];
+        let pointers: AnimationValuePointers = read_single(data, offset)?;
         let values: Vec<RadianEuler> = (0..frames)
-            .map(|frame| read_animation_values(value_data, frame, pointers))
+            .map(|frame| read_animation_values(frame, pointers))
             .map_ok(|[pitch, yaw, roll]| RadianEuler { pitch, yaw, roll })
             .collect::<Result<_, ModelError>>()?;
         RotationData::from(values)
@@ -414,10 +430,9 @@ fn read_animation(
     let position_data = if header.flags.contains(AnimationFlags::STUDIO_ANIM_RAWPOS) {
         PositionData::Vector48(read_single(data, position_offset)?)
     } else if header.flags.contains(AnimationFlags::STUDIO_ANIM_ANIMPOS) {
-        let pointers: AnimationValuePointer = read_single(data, position_offset)?;
-        let value_data = &data[position_offset..];
+        let pointers: AnimationValuePointers = read_single(data, position_offset)?;
         let values = (0..frames)
-            .map(|frame| read_animation_values(value_data, frame, pointers))
+            .map(|frame| read_animation_values(frame, pointers))
             .map_ok(Vector::from)
             .collect::<Result<_, ModelError>>()?;
         PositionData::PositionValues(values)

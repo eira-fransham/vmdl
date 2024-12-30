@@ -1,7 +1,7 @@
 use crate::{ModelError, StringError};
 use arrayvec::ArrayString;
 use bytemuck::{Pod, Zeroable};
-use cgmath::{Angle, Deg, Euler, InnerSpace, Matrix3, Matrix4, Rad, Rotation3, Transform, Vector3};
+use cgmath::{Deg, Euler, Matrix3, Matrix4, Point3, Rad, Rotation3, Transform, Vector3};
 use std::f32::consts::PI;
 use std::fmt;
 use std::fmt::{Display, Formatter};
@@ -27,6 +27,26 @@ impl From<Vector> for Vector3<f32> {
 
 impl From<Vector3<f32>> for Vector {
     fn from(v: Vector3<f32>) -> Self {
+        Self {
+            x: v.x,
+            y: v.y,
+            z: v.z,
+        }
+    }
+}
+
+impl From<Vector> for Point3<f32> {
+    fn from(v: Vector) -> Self {
+        Self {
+            x: v.x,
+            y: v.y,
+            z: v.z,
+        }
+    }
+}
+
+impl From<Point3<f32>> for Vector {
+    fn from(v: Point3<f32>) -> Self {
         Self {
             x: v.x,
             y: v.y,
@@ -321,23 +341,15 @@ impl Transform3x4 {
         mapped_rotation.into()
     }
 
-    pub fn transform(&self, vec: Vector) -> Vector {
-        let vec: Vector3<f32> = [vec.y, vec.z, vec.x].into();
-        let z = vec.dot(self.x()) + self.transform[0][3];
-        let x = vec.dot(self.y()) + self.transform[1][3];
-        let y = vec.dot(self.z()) + self.transform[2][3];
-        Vector { x, y, z }
-    }
-
     pub fn rotation(&self) -> Quaternion {
         cgmath::Quaternion::from(self.rotation_matrix()).into()
     }
 
     pub fn translate(&self) -> Vector {
         [
+            self.transform[2][3],
             self.transform[0][3],
             self.transform[1][3],
-            self.transform[2][3],
         ]
         .into()
     }
@@ -345,9 +357,8 @@ impl Transform3x4 {
 
 impl From<Transform3x4> for Matrix4<f32> {
     fn from(value: Transform3x4) -> Self {
-        let translate = value.translate();
-        let rotate = value.rotation_matrix();
-        let rotate = Matrix4::from(rotate);
-        rotate * Matrix4::from_translation(translate.into())
+        let translate = Matrix4::from_translation(value.translate().into());
+        let rotate = Matrix4::from(value.rotation_matrix());
+        rotate * translate
     }
 }

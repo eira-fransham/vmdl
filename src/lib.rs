@@ -211,14 +211,14 @@ impl Model {
                     .map(|(_, weight)| weight.weight)
                     .sum();
 
-                let pose_to_bone = animated_bone.pos.into();
+                let pose_to_bone: Matrix4<f32> = animated_bone.pose_to_bone.into();
+                let bone_to_pose: Matrix4<f32> = pose_to_bone.inverse_transform().unwrap();
+                let bone_rotation: Matrix4<f32> = animated_bone.rot.into();
 
-                let bone_rotation = Matrix4::from(animated_bone.rot);
                 if weight > 0.0 {
-                    position -= pose_to_bone;
-                    let transform = (animation.transform(frame)) * bone_rotation;
-                    position = transform.transform_vector(position);
-                    position += pose_to_bone;
+                    let transform =
+                        bone_to_pose * animation.transform(frame) * bone_rotation * pose_to_bone;
+                    position = transform.transform_point(position);
                 }
             }
         }
