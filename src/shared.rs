@@ -206,22 +206,10 @@ impl From<RadianEuler> for Euler<Deg<f32>> {
 
 impl From<RadianEuler> for cgmath::Quaternion<f32> {
     fn from(value: RadianEuler) -> Self {
-        let (sy, cy) = Rad::sin_cos(Rad(value.yaw * 0.5));
-        let (sp, cp) = Rad::sin_cos(Rad(value.pitch * 0.5));
-        let (sr, cr) = Rad::sin_cos(Rad(-value.roll * 0.5));
-
-        let sr_cp = sr * cp;
-        let cr_sp = cr * sp;
-
-        let cr_cp = cr * cp;
-        let sr_sp = sr * sp;
-
-        cgmath::Quaternion::new(
-            cr_cp * cy + sr_sp * sy,
-            sr_cp * cy - cr_sp * sy,
-            cr_sp * cy + sr_cp * sy,
-            cr_cp * sy - sr_sp * cy,
-        )
+        // angles are applied in roll, yaw, pitch order
+        cgmath::Quaternion::from_angle_y(Rad(value.pitch))
+            * cgmath::Quaternion::from_angle_z(Rad(value.yaw))
+            * cgmath::Quaternion::from_angle_x(Rad(-value.roll))
     }
 }
 
