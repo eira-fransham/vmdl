@@ -293,7 +293,7 @@ fn index_range(index: i32, count: i32, size: usize) -> impl Iterator<Item = usiz
         .map(move |i| index as usize + i)
 }
 
-fn read_relative_iter<'a, T: ReadRelative, I: 'a + Iterator<Item = usize>>(
+fn read_relative_iter<'a, T: ReadRelative<'a>, I: 'a + Iterator<Item = usize>>(
     data: &'a [u8],
     indexes: I,
 ) -> impl Iterator<Item = Result<T, ModelError>> + 'a {
@@ -307,14 +307,17 @@ fn read_relative_iter<'a, T: ReadRelative, I: 'a + Iterator<Item = usize>>(
     })
 }
 
-fn read_relative<T: ReadRelative, I: Iterator<Item = usize>>(
-    data: &[u8],
+fn read_relative<'a, T: ReadRelative<'a>, I: Iterator<Item = usize> + 'a>(
+    data: &'a [u8],
     indexes: I,
 ) -> Result<Vec<T>, ModelError> {
     read_relative_iter(data, indexes).collect()
 }
 
-fn read_single<T: ReadRelative, I: TryInto<usize>>(data: &[u8], index: I) -> Result<T, ModelError> {
+fn read_single<'a, T: ReadRelative<'a>, I: TryInto<usize>>(
+    data: &'a [u8],
+    index: I,
+) -> Result<T, ModelError> {
     let index = index.try_into().map_err(|_| ModelError::OutOfBounds {
         data: type_name::<T>(),
         offset: usize::MAX_VALUE,
@@ -340,10 +343,10 @@ impl<T: Pod> Readable for T {
     }
 }
 
-trait ReadRelative: Sized {
+trait ReadRelative<'a>: Sized {
     type Header: Readable;
 
-    fn read(data: &[u8], header: Self::Header) -> Result<Self, ModelError>;
+    fn read(data: &'a [u8], header: Self::Header) -> Result<Self, ModelError>;
 }
 
 trait ReadableRelative: Readable {}
@@ -360,7 +363,7 @@ impl<T: ReadableRelative + Pod> ReadableRelative for [T; 2] {}
 impl<T: ReadableRelative + Pod> ReadableRelative for [T; 3] {}
 impl<T: ReadableRelative + Pod> ReadableRelative for [T; 4] {}
 
-impl<T: ReadableRelative> ReadRelative for T {
+impl<T: ReadableRelative> ReadRelative<'_> for T {
     type Header = T;
 
     fn read(_data: &[u8], header: Self::Header) -> Result<Self, ModelError> {
@@ -368,7 +371,7 @@ impl<T: ReadableRelative> ReadRelative for T {
     }
 }
 
-impl ReadRelative for String {
+impl ReadRelative<'_> for String {
     type Header = ();
 
     fn read(data: &[u8], _header: Self::Header) -> Result<Self, ModelError> {

@@ -31,7 +31,7 @@ pub struct PoseParameterDescription {
     pub loop_range: f32,
 }
 
-impl ReadRelative for PoseParameterDescription {
+impl ReadRelative<'_> for PoseParameterDescription {
     type Header = PoseParameterDescriptionHeader;
 
     fn read(data: &[u8], header: Self::Header) -> Result<Self, ModelError> {
@@ -90,7 +90,7 @@ pub struct AnimationDescription {
     pub animations: Vec<Animation>,
 }
 
-impl ReadRelative for AnimationDescription {
+impl ReadRelative<'_> for AnimationDescription {
     type Header = AnimationDescriptionHeader;
 
     fn read(data: &[u8], header: Self::Header) -> Result<Self, ModelError> {
@@ -166,6 +166,9 @@ struct ValueHeader {
     valid: u8,
     total: u8,
 }
+
+static_assertions::const_assert_eq!(size_of::<ValueHeader>(), size_of::<i16>());
+
 impl ReadableRelative for ValueHeader {}
 
 fn read_animation_values(
@@ -177,17 +180,14 @@ fn read_animation_values(
         .0
         .map::<_, Result<_, ModelError>>(|base_pointer| {
             if base_pointer == 0 {
-                Ok(0.0)
+                Ok(0)
             } else {
-                let header = read_single(data, base_pointer)?;
-                let values = FrameValues {
-                    header,
-                    data: &data[base_pointer as usize..],
-                };
-                Ok(values.get(frame as u8)? as f32)
+                let values: FrameValues = read_single(data, base_pointer)?;
+                Ok(values.get(frame as u8)?)
             }
         });
-    Ok([x?, y?, z?])
+    let [x, y, z] = [x?, y?, z?];
+    Ok([x as f32, y as f32, z as f32])
 }
 
 /// I hate this data structure
@@ -206,25 +206,37 @@ struct FrameValues<'a> {
     data: &'a [u8], // data starting at self.header
 }
 
+impl<'a> ReadRelative<'a> for FrameValues<'a> {
+    type Header = ValueHeader;
+
+    fn read(data: &'a [u8], header: Self::Header) -> Result<Self, ModelError> {
+        Ok(FrameValues {
+            header,
+            data: &data
+                .get(size_of::<ValueHeader>()..)
+                .ok_or(ModelError::OutOfBounds {
+                    data: "animation frame data",
+                    offset: size_of::<ValueHeader>(),
+                })?,
+        })
+    }
+}
+
 impl FrameValues<'_> {
     pub fn get(&self, index: u8) -> Result<i16, ModelError> {
         if self.header.total <= index {
-            let offset_count = self.header.valid + 1;
+            let offset_count = self.header.valid;
             let offset = (offset_count as usize) * size_of::<ValueHeader>();
-            let next_header: ValueHeader = read_single(self.data, offset)?;
-            let next = FrameValues {
-                header: next_header,
-                data: &self.data[offset..],
-            };
-            if next_header.total == 0 {
+            let next: FrameValues = read_single(self.data, offset)?;
+            if next.header.total == 0 {
                 return Ok(0);
             }
             next.get(index - self.header.total)
         } else {
-            let offset_count = if self.header.valid > index {
-                index + 1
+            let offset_count = if index < self.header.valid {
+                index
             } else {
-                self.header.valid
+                self.header.valid - 1
             };
             let offset = (offset_count as usize) * size_of::<i16>();
             read_single(self.data, offset)
@@ -391,7 +403,7 @@ fn read_animation(
         let value_data = &data[offset..];
         let values: Vec<RadianEuler> = (0..frames)
             .map(|frame| read_animation_values(value_data, frame, pointers))
-            .map_ok(|[pitch, yaw, roll]| RadianEuler { roll, yaw, pitch })
+            .map_ok(|[pitch, yaw, roll]| RadianEuler { pitch, yaw, roll })
             .collect::<Result<_, ModelError>>()?;
         RotationData::from(values)
     } else {
@@ -518,7 +530,7 @@ pub struct AnimationSequence {
     pub bone_weights: Vec<f32>,
 }
 
-impl ReadRelative for AnimationSequence {
+impl ReadRelative<'_> for AnimationSequence {
     type Header = AnimationSequenceHeader;
 
     fn read(data: &[u8], header: Self::Header) -> Result<Self, ModelError> {

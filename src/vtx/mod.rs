@@ -32,7 +32,7 @@ pub struct BodyPart {
     pub models: Vec<Model>,
 }
 
-impl ReadRelative for BodyPart {
+impl ReadRelative<'_> for BodyPart {
     type Header = BodyPartHeader;
 
     fn read(data: &[u8], header: Self::Header) -> Result<Self> {
@@ -47,7 +47,7 @@ pub struct Model {
     pub lods: Vec<ModelLod>,
 }
 
-impl ReadRelative for Model {
+impl ReadRelative<'_> for Model {
     type Header = ModelHeader;
 
     fn read(data: &[u8], header: Self::Header) -> Result<Self> {
@@ -63,7 +63,7 @@ pub struct ModelLod {
     pub switch_point: f32,
 }
 
-impl ReadRelative for ModelLod {
+impl ReadRelative<'_> for ModelLod {
     type Header = ModelLodHeader;
 
     fn read(data: &[u8], header: Self::Header) -> Result<Self> {
@@ -80,7 +80,7 @@ pub struct Mesh {
     pub flags: MeshFlags,
 }
 
-impl ReadRelative for Mesh {
+impl ReadRelative<'_> for Mesh {
     type Header = MeshHeader;
 
     fn read(data: &[u8], header: Self::Header) -> Result<Self> {
@@ -100,7 +100,7 @@ pub struct StripGroup {
     pub flags: StripGroupFlags,
 }
 
-impl ReadRelative for StripGroup {
+impl ReadRelative<'_> for StripGroup {
     type Header = StripGroupHeader;
 
     fn read(data: &[u8], header: Self::Header) -> Result<Self> {
@@ -121,7 +121,7 @@ pub struct Strip {
     indices: Range<usize>,
 }
 
-impl ReadRelative for Strip {
+impl ReadRelative<'_> for Strip {
     type Header = StripHeader;
 
     fn read(_data: &[u8], header: Self::Header) -> Result<Self> {

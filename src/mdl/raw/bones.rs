@@ -91,7 +91,7 @@ pub struct Bone {
     pub contents: ContentFlags,
 }
 
-impl ReadRelative for Bone {
+impl ReadRelative<'_> for Bone {
     type Header = BoneHeader;
 
     fn read(data: &[u8], header: Self::Header) -> Result<Self, ModelError> {
@@ -364,7 +364,7 @@ pub struct SourceBoneTransform {
     pub post_transform: Transform3x4,
 }
 
-impl ReadRelative for SourceBoneTransform {
+impl ReadRelative<'_> for SourceBoneTransform {
     type Header = SourceBoneTransformHeader;
 
     fn read(data: &[u8], header: Self::Header) -> Result<Self, ModelError> {
@@ -427,7 +427,7 @@ pub struct BoneController {
     pub input_field: i32,
 }
 
-impl ReadRelative for BoneController {
+impl ReadRelative<'_> for BoneController {
     type Header = BoneControllerHeader;
 
     fn read(_data: &[u8], header: Self::Header) -> Result<Self, ModelError> {

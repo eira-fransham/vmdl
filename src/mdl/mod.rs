@@ -129,7 +129,7 @@ pub struct BodyPart {
     pub models: Vec<Model>,
 }
 
-impl ReadRelative for BodyPart {
+impl ReadRelative<'_> for BodyPart {
     type Header = BodyPartHeader;
 
     fn read(data: &[u8], header: Self::Header) -> Result<Self> {
@@ -150,7 +150,7 @@ pub struct Model {
     pub vertex_offset: i32,
 }
 
-impl ReadRelative for Model {
+impl ReadRelative<'_> for Model {
     type Header = ModelHeader;
 
     fn read(data: &[u8], header: Self::Header) -> Result<Self> {
@@ -170,7 +170,7 @@ pub struct Mesh {
     pub vertex_offset: i32,
 }
 
-impl ReadRelative for Mesh {
+impl ReadRelative<'_> for Mesh {
     type Header = MeshHeader;
 
     fn read(_data: &[u8], header: Self::Header) -> Result<Self> {
@@ -188,7 +188,7 @@ pub struct TextureInfo {
     pub search_paths: Vec<String>,
 }
 
-impl ReadRelative for TextureInfo {
+impl ReadRelative<'_> for TextureInfo {
     type Header = MeshTexture;
 
     fn read(data: &[u8], header: Self::Header) -> Result<Self> {
@@ -212,7 +212,7 @@ pub struct StudioAttachment {
     pub local: Transform3x4,
 }
 
-impl ReadRelative for StudioAttachment {
+impl ReadRelative<'_> for StudioAttachment {
     type Header = StudioAttachmentHeader;
 
     fn read(data: &[u8], header: Self::Header) -> Result<Self> {
@@ -235,7 +235,7 @@ pub struct HitBoxSet {
     pub boxes: Vec<BoundingBox>,
 }
 
-impl ReadRelative for HitBoxSet {
+impl ReadRelative<'_> for HitBoxSet {
     type Header = HitBoxSetHeader;
 
     fn read(data: &[u8], header: Self::Header) -> Result<Self> {
@@ -259,7 +259,7 @@ pub struct BoundingBox {
     pub max: Vector,
 }
 
-impl ReadRelative for BoundingBox {
+impl ReadRelative<'_> for BoundingBox {
     type Header = BoundingBoxHeader;
 
     fn read(data: &[u8], header: Self::Header) -> Result<Self> {
