@@ -7,6 +7,7 @@ use crate::{
 use bitflags::bitflags;
 use bytemuck::{Pod, Zeroable};
 use cgmath::Matrix4;
+use itertools::Itertools;
 use std::mem::size_of;
 
 #[derive(Debug, Clone, Copy, Zeroable, Pod)]
@@ -172,20 +173,21 @@ fn read_animation_values(
     frame: usize,
     base_pointers: AnimationValuePointer,
 ) -> Result<[f32; 3], ModelError> {
-    let mut result = [0.0; 3];
-    for (out, base_pointer) in result.iter_mut().zip(base_pointers.0) {
-        if base_pointer == 0 {
-            *out = 0.0;
-        } else {
-            let header: ValueHeader = read_single(data, base_pointer)?;
-            let values = FrameValues {
-                header,
-                data: &data[base_pointer as usize..],
-            };
-            *out = values.get(frame as u8).map(|val| val as f32)?;
-        }
-    }
-    Ok(result)
+    let [x, y, z] = base_pointers
+        .0
+        .map::<_, Result<_, ModelError>>(|base_pointer| {
+            if base_pointer == 0 {
+                Ok(0.0)
+            } else {
+                let header = read_single(data, base_pointer)?;
+                let values = FrameValues {
+                    header,
+                    data: &data[base_pointer as usize..],
+                };
+                Ok(values.get(frame as u8)? as f32)
+            }
+        });
+    Ok([x?, y?, z?])
 }
 
 /// I hate this data structure
@@ -208,7 +210,7 @@ impl FrameValues<'_> {
     pub fn get(&self, index: u8) -> Result<i16, ModelError> {
         if self.header.total <= index {
             let offset_count = self.header.valid + 1;
-            let offset = (offset_count as usize) * size_of::<u16>();
+            let offset = (offset_count as usize) * size_of::<ValueHeader>();
             let next_header: ValueHeader = read_single(self.data, offset)?;
             let next = FrameValues {
                 header: next_header,
@@ -224,7 +226,7 @@ impl FrameValues<'_> {
             } else {
                 self.header.valid
             };
-            let offset = (offset_count as usize) * size_of::<u16>();
+            let offset = (offset_count as usize) * size_of::<i16>();
             read_single(self.data, offset)
         }
     }
@@ -286,9 +288,9 @@ impl RotationData {
         if let RotationData::Animated(values) = self {
             values.iter_mut().for_each(|value| {
                 *value = RadianEuler {
-                    x: value.x * scale.x,
-                    y: value.y * scale.y,
-                    z: value.z * scale.z,
+                    roll: value.roll * scale.roll,
+                    pitch: value.pitch * scale.pitch,
+                    yaw: value.yaw * scale.yaw,
                 }
             });
         }
@@ -298,9 +300,9 @@ impl RotationData {
         if let RotationData::Animated(values) = self {
             values.iter_mut().for_each(|value| {
                 *value = RadianEuler {
-                    x: value.x + base.x,
-                    y: value.y + base.y,
-                    z: value.z + base.z,
+                    roll: value.roll + base.roll,
+                    pitch: value.pitch + base.pitch,
+                    yaw: value.yaw + base.yaw,
                 }
             });
         }
@@ -389,7 +391,7 @@ fn read_animation(
         let value_data = &data[offset..];
         let values: Vec<RadianEuler> = (0..frames)
             .map(|frame| read_animation_values(value_data, frame, pointers))
-            .map(|r| r.map(|[y, z, x]| RadianEuler { x, z, y }))
+            .map_ok(|[pitch, yaw, roll]| RadianEuler { roll, yaw, pitch })
             .collect::<Result<_, ModelError>>()?;
         RotationData::from(values)
     } else {
@@ -404,7 +406,7 @@ fn read_animation(
         let value_data = &data[position_offset..];
         let values = (0..frames)
             .map(|frame| read_animation_values(value_data, frame, pointers))
-            .map(|r| r.map(Vector::from))
+            .map_ok(Vector::from)
             .collect::<Result<_, ModelError>>()?;
         PositionData::PositionValues(values)
     } else {

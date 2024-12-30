@@ -139,9 +139,9 @@ impl ReadRelative for Bone {
             rot: header.rot,
             pos_scale: header.pos_scale,
             rot_scale: RadianEuler {
-                x: header.rot_scale[2],
-                y: header.rot_scale[0],
-                z: header.rot_scale[1],
+                roll: header.rot_scale[2],
+                pitch: header.rot_scale[0],
+                yaw: header.rot_scale[1],
             },
             pose_to_bone: header.pose_to_bone,
             q_alignment: header.q_alignment,

@@ -161,12 +161,9 @@ impl Mul<RadianEuler> for Quaternion {
 #[derive(Debug, Clone, Copy, Zeroable, Pod, Default)]
 #[repr(C)]
 pub struct RadianEuler {
-    /// Roll
-    pub x: f32,
-    /// Pitch
-    pub y: f32,
-    /// Yaw
-    pub z: f32,
+    pub roll: f32,
+    pub pitch: f32,
+    pub yaw: f32,
 }
 
 impl RadianEuler {
@@ -180,9 +177,9 @@ impl RadianEuler {
         }
 
         Self {
-            x: clamp(self.x),
-            y: clamp(self.y),
-            z: clamp(self.z),
+            roll: clamp(self.roll),
+            pitch: clamp(self.pitch),
+            yaw: clamp(self.yaw),
         }
     }
 }
@@ -190,9 +187,9 @@ impl RadianEuler {
 impl From<RadianEuler> for Euler<Rad<f32>> {
     fn from(e: RadianEuler) -> Self {
         Euler {
-            x: Rad(e.x),
-            y: Rad(e.y),
-            z: Rad(e.z),
+            x: Rad(e.roll),
+            y: Rad(e.pitch),
+            z: Rad(e.yaw),
         }
     }
 }
@@ -200,18 +197,18 @@ impl From<RadianEuler> for Euler<Rad<f32>> {
 impl From<RadianEuler> for Euler<Deg<f32>> {
     fn from(e: RadianEuler) -> Self {
         Euler {
-            x: Rad(e.x).into(),
-            y: Rad(e.y).into(),
-            z: Rad(e.z).into(),
+            x: Rad(e.roll).into(),
+            y: Rad(e.pitch).into(),
+            z: Rad(e.yaw).into(),
         }
     }
 }
 
 impl From<RadianEuler> for cgmath::Quaternion<f32> {
     fn from(value: RadianEuler) -> Self {
-        let (sy, cy) = Rad::sin_cos(Rad(value.z * 0.5));
-        let (sp, cp) = Rad::sin_cos(Rad(value.y * 0.5));
-        let (sr, cr) = Rad::sin_cos(Rad(-value.x * 0.5));
+        let (sy, cy) = Rad::sin_cos(Rad(value.yaw * 0.5));
+        let (sp, cp) = Rad::sin_cos(Rad(value.pitch * 0.5));
+        let (sr, cr) = Rad::sin_cos(Rad(-value.roll * 0.5));
 
         let sr_cp = sr * cp;
         let cr_sp = cr * sp;
@@ -245,9 +242,9 @@ impl Mul<f32> for RadianEuler {
 
     fn mul(self, rhs: f32) -> Self::Output {
         RadianEuler {
-            x: self.x * rhs,
-            y: self.y * rhs,
-            z: self.z * rhs,
+            roll: self.roll * rhs,
+            pitch: self.pitch * rhs,
+            yaw: self.yaw * rhs,
         }
     }
 }
