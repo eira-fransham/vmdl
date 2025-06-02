@@ -6,7 +6,8 @@ Rust parser for source engine model files (`.mdl`, `.vtx`, `.vvd`)
 
 ## Examples
 
-All examples require the `.mdl`, `.vvd` and `.dx90.vtx` to be next to each other and TF2 to be installed to load the texture data from.
+All examples require the `.mdl`, `.vvd` and `.dx90.vtx` to be next to each other
+and TF2 to be installed to load the texture data from.
 
 ## Viewer
 

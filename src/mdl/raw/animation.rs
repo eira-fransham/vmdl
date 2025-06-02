@@ -94,6 +94,7 @@ impl ReadRelative<'_> for AnimationDescription {
     type Header = AnimationDescriptionHeader;
 
     fn read(data: &[u8], header: Self::Header) -> Result<Self, ModelError> {
+        dbg!(header);
         let mut animations = Vec::with_capacity(1);
         let mut offset = header.animation_index as usize;
         loop {
@@ -186,6 +187,7 @@ impl ReadableRelative for ValueHeader {}
 fn read_animation_values(
     frame: usize,
     animation_value_pointers: AnimationValuePointers,
+    debug: bool,
 ) -> Result<[f32; 3], ModelError> {
     let [x, y, z] = animation_value_pointers
         .offsets
@@ -194,7 +196,10 @@ fn read_animation_values(
                 Ok(0)
             } else {
                 let values: FrameValues = read_single(animation_value_pointers.data, offset)?;
-                Ok(values.get(frame as u8)?)
+                if debug {
+                    println!("frame {frame}");
+                }
+                Ok(values.get(frame as u8, debug)?)
             }
         });
     let [x, y, z] = [x?, y?, z?];
@@ -279,7 +284,6 @@ impl From<Quaternion64> for RotationData {
 
 impl From<Vec<RadianEuler>> for RotationData {
     fn from(value: Vec<RadianEuler>) -> Self {
-        // axis get fixed up when applying the scale
         RotationData::Animated(value)
     }
 }
@@ -292,6 +296,7 @@ impl RotationData {
             RotationData::Animated(values) => values
                 .get(frame)
                 .copied()
+                .inspect(|v| println!("{:?}", v))
                 .unwrap_or_else(|| values.last().copied().unwrap_or_default())
                 .into(),
             RotationData::None => Quaternion::default(),
@@ -408,6 +413,7 @@ fn read_animation(
         offset: header_offset,
     })?;
     let header = <AnimationHeader as Readable>::read(data)?;
+    dbg!(header);
 
     let offset = size_of::<AnimationHeader>();
 
@@ -417,8 +423,9 @@ fn read_animation(
         RotationData::from(read_single::<Quaternion64, _>(data, offset)?)
     } else if header.flags.contains(AnimationFlags::STUDIO_ANIM_ANIMROT) {
         let pointers: AnimationValuePointers = read_single(data, offset)?;
+        println!("bone: {}", header.bone);
         let values: Vec<RadianEuler> = (0..frames)
-            .map(|frame| read_animation_values(frame, pointers))
+            .map(|frame| read_animation_values(frame, pointers, header.bone == 0))
             .map_ok(|[pitch, yaw, roll]| RadianEuler { pitch, yaw, roll })
             .collect::<Result<_, ModelError>>()?;
         RotationData::from(values)
@@ -432,7 +439,7 @@ fn read_animation(
     } else if header.flags.contains(AnimationFlags::STUDIO_ANIM_ANIMPOS) {
         let pointers: AnimationValuePointers = read_single(data, position_offset)?;
         let values = (0..frames)
-            .map(|frame| read_animation_values(frame, pointers))
+            .map(|frame| read_animation_values(frame, pointers, false))
             .map_ok(Vector::from)
             .collect::<Result<_, ModelError>>()?;
         PositionData::PositionValues(values)

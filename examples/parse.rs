@@ -1,6 +1,7 @@
 use cgmath::Matrix4;
 use std::env::args;
 use std::fs;
+use std::hint::black_box;
 use std::path::PathBuf;
 use vmdl::mdl::Mdl;
 use vmdl::vtx::Vtx;
@@ -19,35 +20,28 @@ fn main() -> Result<(), vmdl::ModelError> {
     let data = fs::read(path.with_extension("vvd"))?;
     let vvd = Vvd::read(&data)?;
 
-    for bone in &mdl.bones {
-        println!(
-            "{}: from {} at\n\t{:?}\n\t{:?}\n\t{:?}\n\t{:?}",
-            bone.name, bone.parent, bone.rot, bone.rot_scale, bone.quaternion, bone.pose_to_bone
-        );
-    }
-
-    dbg!(Matrix4::from(mdl.bones[1].pose_to_bone.clone()));
-
-    // for animation_desc in &mdl.local_animations {
+    // for bone in &mdl.bones {
     //     println!(
-    //         "{}: {} frames at {}fps",
-    //         animation_desc.name, animation_desc.frame_count, animation_desc.fps,
+    //         "{}: from {} at\n\t{:?}\n\t{:?}\n\t{:?}\n\t{:?}",
+    //         bone.name, bone.parent, bone.rot, bone.rot_scale, bone.quaternion, bone.pose_to_bone
     //     );
-    //     for animation in &animation_desc.animations {
-    //         println!(
-    //             "\tbone {:.2} frame 0:\n\t\trot: {:?}\n\t\tpos: {:?}",
-    //             animation.bone,
-    //             animation.rotation(0),
-    //             animation.position(0),
-    //         );
-    //         println!(
-    //             "\tbone {:.2} frame 1:\n\t\trot: {:?}\n\t\tpos: {:?}",
-    //             animation.bone,
-    //             animation.rotation(10),
-    //             animation.position(10),
-    //         );
-    //     }
     // }
+
+    for animation_desc in mdl.local_animations.iter() {
+        println!(
+            "{}: {} frames at {}fps",
+            animation_desc.name, animation_desc.frame_count, animation_desc.fps,
+        );
+        for animation in &animation_desc.animations.first() {
+            dbg!(animation.flags);
+            println!(
+                "\tbone {:.2} frame 0:\n\t\ttrans: {:?}\n\t\tpos: {:?}",
+                animation.bone,
+                animation.rotation(0),
+                animation.translation(0),
+            );
+        }
+    }
 
     let model = Model::from_parts(mdl, vtx, vvd);
 
