@@ -5,7 +5,7 @@ mod material;
 
 use crate::error::Error;
 use crate::material::{load_material_fallback, MaterialData};
-use cgmath::{vec3, Matrix4, SquareMatrix, Vector3};
+use cgmath::{vec3, Matrix4, SquareMatrix};
 use std::collections::HashMap;
 use std::env::args_os;
 use std::path::PathBuf;
@@ -53,7 +53,7 @@ fn main() -> Result<(), Error> {
     let context = window.gl();
 
     let (bb_min, bb_max) = source_model.bounding_box();
-    let bb_center = Vector3::from(map_coords((bb_min + bb_max) * 0.5));
+    let bb_center = map_coords((bb_min + bb_max) * 0.5);
 
     let mut camera = Camera::new_perspective(
         window.viewport(),
@@ -301,7 +301,7 @@ fn model_to_model(
             let positions: Vec<Vec3> = mesh
                 .vertices()
                 .map(|vertex| model.apply_animation(animation, vertex, frame))
-                .map(|position| map_coords(position))
+                .map(map_coords)
                 .map(|vertex: Vec3| (transforms * vertex.extend(1.0)).truncate())
                 .collect();
             let normals: Vec<Vec3> = mesh.vertices().map(|vertex| vertex.normal.into()).collect();

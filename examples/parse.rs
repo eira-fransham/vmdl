@@ -1,7 +1,5 @@
-use cgmath::Matrix4;
 use std::env::args;
 use std::fs;
-use std::hint::black_box;
 use std::path::PathBuf;
 use vmdl::mdl::Mdl;
 use vmdl::vtx::Vtx;
@@ -32,7 +30,7 @@ fn main() -> Result<(), vmdl::ModelError> {
             "{}: {} frames at {}fps",
             animation_desc.name, animation_desc.frame_count, animation_desc.fps,
         );
-        for animation in &animation_desc.animations.first() {
+        for animation in &animation_desc.animations {
             dbg!(animation.flags);
             println!(
                 "\tbone {:.2} frame 0:\n\t\ttrans: {:?}\n\t\tpos: {:?}",

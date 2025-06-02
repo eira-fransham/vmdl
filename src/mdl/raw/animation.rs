@@ -187,7 +187,6 @@ impl ReadableRelative for ValueHeader {}
 fn read_animation_values(
     frame: usize,
     animation_value_pointers: AnimationValuePointers,
-    debug: bool,
 ) -> Result<[f32; 3], ModelError> {
     let [x, y, z] = animation_value_pointers
         .offsets
@@ -196,10 +195,7 @@ fn read_animation_values(
                 Ok(0)
             } else {
                 let values: FrameValues = read_single(animation_value_pointers.data, offset)?;
-                if debug {
-                    println!("frame {frame}");
-                }
-                Ok(values.get(frame as u8, debug)?)
+                Ok(values.get(frame as u8)?)
             }
         });
     let [x, y, z] = [x?, y?, z?];
@@ -228,7 +224,7 @@ impl<'a> ReadRelative<'a> for FrameValues<'a> {
     fn read(data: &'a [u8], header: Self::Header) -> Result<Self, ModelError> {
         Ok(FrameValues {
             header,
-            data: &data
+            data: data
                 .get(size_of::<ValueHeader>()..)
                 .ok_or(ModelError::OutOfBounds {
                     data: "animation frame data",
@@ -425,7 +421,7 @@ fn read_animation(
         let pointers: AnimationValuePointers = read_single(data, offset)?;
         println!("bone: {}", header.bone);
         let values: Vec<RadianEuler> = (0..frames)
-            .map(|frame| read_animation_values(frame, pointers, header.bone == 0))
+            .map(|frame| read_animation_values(frame, pointers))
             .map_ok(|[pitch, yaw, roll]| RadianEuler { pitch, yaw, roll })
             .collect::<Result<_, ModelError>>()?;
         RotationData::from(values)
@@ -439,7 +435,7 @@ fn read_animation(
     } else if header.flags.contains(AnimationFlags::STUDIO_ANIM_ANIMPOS) {
         let pointers: AnimationValuePointers = read_single(data, position_offset)?;
         let values = (0..frames)
-            .map(|frame| read_animation_values(frame, pointers, false))
+            .map(|frame| read_animation_values(frame, pointers))
             .map_ok(Vector::from)
             .collect::<Result<_, ModelError>>()?;
         PositionData::PositionValues(values)
