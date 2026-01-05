@@ -270,7 +270,7 @@ impl<const LEN: usize> TryFrom<[u8; LEN]> for FixedString<LEN> {
         let zero_pos = name_buf
             .iter()
             .position(|c| *c == 0)
-            .ok_or(StringError::NotNullTerminated)?;
+            .unwrap_or(name_buf.len());
         let name = &name_buf[..zero_pos];
         Ok(FixedString(
             ArrayString::from(str::from_utf8(name).map_err(StringError::NonUTF8)?).unwrap(),
