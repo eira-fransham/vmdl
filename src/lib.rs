@@ -68,7 +68,7 @@ impl Model {
         &self.mdl.textures
     }
 
-    pub fn skin_tables(&self) -> impl Iterator<Item = SkinTable> {
+    pub fn skin_tables(&self) -> impl Iterator<Item = SkinTable<'_>> {
         if self.mdl.header.skin_reference_count > 0 {
             Either::Left(
                 self.mdl
@@ -91,7 +91,7 @@ impl Model {
         self.mdl.local_animations.iter()
     }
 
-    pub fn meshes(&self) -> impl Iterator<Item = Mesh> {
+    pub fn meshes(&self) -> impl Iterator<Item = Mesh<'_>> {
         let mdl_meshes = self
             .mdl
             .body_parts
@@ -136,7 +136,7 @@ impl Model {
         self.mdl.name.as_str()
     }
 
-    pub fn bones(&self) -> impl Iterator<Item = Handle<Bone, BoneId>> {
+    pub fn bones(&self) -> impl Iterator<Item = Handle<'_, Bone, BoneId>> {
         self.mdl
             .bones
             .iter()
@@ -144,7 +144,7 @@ impl Model {
             .map(|(i, bone)| Handle::new(&self.mdl, bone, i.into()))
     }
 
-    pub fn bone(&self, id: BoneId) -> Option<Handle<Bone, BoneId>> {
+    pub fn bone(&self, id: BoneId) -> Option<Handle<'_, Bone, BoneId>> {
         self.mdl
             .bones
             .get(usize::from(id))
@@ -251,23 +251,22 @@ pub struct Mesh<'a> {
     pub model_name: &'a str,
     model_vertex_offset: usize,
     vertices: &'a [Vertex],
+    #[expect(dead_code)]
     tangents: &'a [[f32; 4]],
     mdl: &'a mdl::Mesh,
     vtx: &'a vtx::Mesh,
 }
 
 impl<'a> Mesh<'a> {
-    /// Vertex indices into the model's vertex list
-    pub fn vertex_strip_indices(&self) -> impl Iterator<Item = impl Iterator<Item = usize> + 'a> {
-        let mdl_offset = self.mdl.vertex_offset as usize + self.model_vertex_offset;
-        self.vtx.strip_groups.iter().flat_map(move |strip_group| {
+    pub fn vertex_strip_indices(&self) -> impl Iterator<Item = usize> + use<'a> {
+        self.vtx.strip_groups.iter().flat_map(|strip_group| {
             let group_indices = &strip_group.indices;
             let vertices = &strip_group.vertices;
-            strip_group.strips.iter().map(move |strip| {
+            strip_group.strips.iter().flat_map(move |strip| {
                 strip
                     .indices()
                     .map(move |index| group_indices[index] as usize)
-                    .map(move |index| vertices[index].original_mesh_vertex_id as usize + mdl_offset)
+                    .map(move |index| vertices[index].original_mesh_vertex_id as usize)
             })
         })
     }
@@ -276,15 +275,20 @@ impl<'a> Mesh<'a> {
         self.mdl.material
     }
 
-    pub fn vertices(&self) -> impl Iterator<Item = &'a Vertex> + 'a {
-        self.vertex_strip_indices()
-            .flat_map(|strip| strip.map(|index| &self.vertices[index]))
+    pub fn vertices(&self) -> &'a [Vertex] {
+        let Some(max) = self.vertex_strip_indices().max() else {
+            return &[];
+        };
+
+        let mdl_offset = self.mdl.vertex_offset as usize + self.model_vertex_offset;
+
+        &self.vertices[mdl_offset..mdl_offset + max + 1]
     }
 
-    pub fn tangents(&self) -> impl Iterator<Item = [f32; 4]> + '_ {
-        self.vertex_strip_indices()
-            .flat_map(|strip| strip.map(|index| self.tangents[index]))
-    }
+    // pub fn tangents(&self) -> impl Iterator<Item = [f32; 4]> + '_ {
+    //     self.vertex_strip_indices()
+    //         .flat_map(|strip| strip.map(|index| self.tangents[index]))
+    // }
 }
 
 fn index_range(index: i32, count: i32, size: usize) -> impl Iterator<Item = usize> {
