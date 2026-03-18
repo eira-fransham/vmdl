@@ -25,6 +25,7 @@ use std::fs;
 use std::iter::once;
 use std::mem::size_of;
 use std::path::Path;
+use tracing::warn;
 
 pub struct Model {
     #[allow(dead_code)]
@@ -260,14 +261,22 @@ pub struct Mesh<'a> {
 
 impl<'a> Mesh<'a> {
     pub fn vertex_strip_indices(&self) -> impl Iterator<Item = usize> + use<'a> {
-        self.vtx.strip_groups.iter().flat_map(|strip_group| {
+        if self.model_vertex_offset != 0 {
+            // Some props in `zi_atoll` have this non-zero, but it's unclear how we should handle it
+            // since it doesn't seem to be an offset to `original_mesh_vertex_id` nor to the indices
+            warn!(
+                "Model found with non-zero `model_vertex_offset`. \
+                It's currently unclear precisely how we should handle this field."
+            );
+        }
+
+        let offset = self.mdl.vertex_offset as usize;
+        self.vtx.strip_groups.iter().flat_map(move |strip_group| {
             let group_indices = &strip_group.indices;
-            // let vertices = &strip_group.vertices;
             strip_group.strips.iter().flat_map(move |strip| {
                 strip
                     .indices()
-                    .map(move |index| group_indices[index] as usize)
-                // .map(move |index| vertices[index].original_mesh_vertex_id as usize)
+                    .map(move |index| group_indices[index] as usize + offset)
             })
         })
     }
@@ -277,17 +286,21 @@ impl<'a> Mesh<'a> {
     }
 
     pub fn vertices(&self) -> impl Iterator<Item = &'a Vertex> + use<'a> {
-        let Self {
-            vertices,
-            vtx,
-            model_vertex_offset,
-            ..
-        } = *self;
+        if self.model_vertex_offset != 0 {
+            // Some props in `zi_atoll` have this non-zero, but it's unclear how we should handle it
+            // since it doesn't seem to be an offset to `original_mesh_vertex_id` nor to the indices
+            warn!(
+                "Model found with non-zero `model_vertex_offset`. \
+                It's currently unclear precisely how we should handle this field."
+            );
+        }
+
+        let Self { vertices, vtx, .. } = *self;
         vtx.strip_groups.iter().flat_map(move |strip_group| {
             strip_group
                 .vertices
                 .iter()
-                .map(move |v| &vertices[v.original_mesh_vertex_id as usize + model_vertex_offset])
+                .map(move |v| &vertices[v.original_mesh_vertex_id as usize])
         })
     }
 
