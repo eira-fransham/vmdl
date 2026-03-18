@@ -3,6 +3,7 @@ mod error;
 mod handle;
 pub mod mdl;
 mod shared;
+pub mod vhv;
 pub mod vtx;
 pub mod vvd;
 
@@ -261,12 +262,12 @@ impl<'a> Mesh<'a> {
     pub fn vertex_strip_indices(&self) -> impl Iterator<Item = usize> + use<'a> {
         self.vtx.strip_groups.iter().flat_map(|strip_group| {
             let group_indices = &strip_group.indices;
-            let vertices = &strip_group.vertices;
+            // let vertices = &strip_group.vertices;
             strip_group.strips.iter().flat_map(move |strip| {
                 strip
                     .indices()
                     .map(move |index| group_indices[index] as usize)
-                    .map(move |index| vertices[index].original_mesh_vertex_id as usize)
+                // .map(move |index| vertices[index].original_mesh_vertex_id as usize)
             })
         })
     }
@@ -275,14 +276,19 @@ impl<'a> Mesh<'a> {
         self.mdl.material
     }
 
-    pub fn vertices(&self) -> &'a [Vertex] {
-        let Some(max) = self.vertex_strip_indices().max() else {
-            return &[];
-        };
-
-        let mdl_offset = self.mdl.vertex_offset as usize + self.model_vertex_offset;
-
-        &self.vertices[mdl_offset..mdl_offset + max + 1]
+    pub fn vertices(&self) -> impl Iterator<Item = &'a Vertex> + use<'a> {
+        let Self {
+            vertices,
+            vtx,
+            model_vertex_offset,
+            ..
+        } = *self;
+        vtx.strip_groups.iter().flat_map(move |strip_group| {
+            strip_group
+                .vertices
+                .iter()
+                .map(move |v| &vertices[v.original_mesh_vertex_id as usize + model_vertex_offset])
+        })
     }
 
     // pub fn tangents(&self) -> impl Iterator<Item = [f32; 4]> + '_ {
